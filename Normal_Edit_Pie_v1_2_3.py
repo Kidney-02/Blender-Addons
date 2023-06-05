@@ -1,7 +1,7 @@
 bl_info = {
-    "name": "EASEtool: Normal",
+    "name": "EASEtool: Normals",
     "author": "Kidney",
-    "version": (1, 2, 3),
+    "version": (1, 2, 5),
     "blender": (3, 5, 0),
     "location": "3D View (Alt N)",
     "description": "Replacing normal edit menu with a pie menu plus extra tools",
@@ -11,52 +11,47 @@ bl_info = {
 }
 
 
-
-
-
 import bpy
 from bpy.types import Menu, Operator
 from bpy.props import EnumProperty, FloatProperty, StringProperty, BoolProperty, FloatVectorProperty
-
-
-
-
 
 #######################################################################################################################
 ##### OPERATORS #####
 #######################################################################################################################
 
-class EASEtool_OT_Select_Face_Strength(Operator):
-    """Select by face strength"""
-    bl_idname = "easetool.select_face_strength"
-    bl_label = "Select by Face Strength"
+class EASEtool_OT_Face_Strength(Operator):
+    """Select by face strength Parent"""
+    bl_idname = "easetool.face_strength"
+    bl_label = "Face Strength"
     bl_options = {'REGISTER', 'UNDO'}
 
-    face_strength: EnumProperty(
+    face_strength: EnumProperty(name="Face Strength",
         items=[("STRONG", "Strong", "Face Strength attribute Strong"),
                ("MEDIUM", "Medium", "Face Strength attribute Medium"),               
-               ("WEAK", "Weak", "Face Strength attribute Weak")],
-        name="Face Strength"
+               ("WEAK", "Weak", "Face Strength attribute Weak")],        
     )
     
-    set = False
-    obj = None
+    set: BoolProperty(name = "Set", default = False)
         
     @classmethod
-    def poll(cls, context):
+    def poll(self, context):
         return context.mode == 'EDIT_MESH'
     
     def execute(self, context):        
-        # Get the active object in the scene
-        self.obj = bpy.context.active_object
-        if self.obj is None:
-            self.report({'ERROR'}, "No object active")
-            return {'CANCELLED'}
-
         bpy.ops.mesh.mod_weighted_strength(set=self.set, face_strength=self.face_strength)
         return {'FINISHED'}
 
-class EASEtool_OT_Set_Face_Strength(EASEtool_OT_Select_Face_Strength):
+class EASEtool_OT_Select_Face_Strength(EASEtool_OT_Face_Strength):
+    """Select by face strength"""
+    bl_idname = "easetool.select_face_strength"
+    bl_label = "Select by Face Strength"
+            
+    def execute(self, context):        
+        self.set = False
+        super().execute(context)
+        return {'FINISHED'}
+
+class EASEtool_OT_Set_Face_Strength(EASEtool_OT_Face_Strength):
     """Set face strength and add a weighted normal modifier"""
     bl_idname = "easetool.set_face_strength"
     bl_label = "Set Face Strength"
@@ -64,21 +59,22 @@ class EASEtool_OT_Set_Face_Strength(EASEtool_OT_Select_Face_Strength):
     def execute(self, context):
         self.set = True
         super().execute(context)
-        self.weighted_normal_setup()
+        self.weighted_normal_setup(context)
 
         return {'FINISHED'}
     
-    def weighted_normal_setup(self):
-         # find or create weighted normal
-        for mod in self.obj.modifiers:
+    def weighted_normal_setup(self, context):
+        # find or create weighted normal
+        obj = context.active_object
+        for mod in obj.modifiers:
             if mod.type == 'WEIGHTED_NORMAL':
                 return
         else:
-            mod = self.obj.modifiers.new("Weighted Normals", 'WEIGHTED_NORMAL')
+            mod = obj.modifiers.new("Weighted Normals", 'WEIGHTED_NORMAL')
         mod.use_face_influence = True
         bpy.ops.mesh.faces_shade_smooth()
-        self.obj.data.use_auto_smooth = True
-        self.obj.data.auto_smooth_angle = 1.0472
+        obj.data.use_auto_smooth = True
+        obj.data.auto_smooth_angle = 1.0472
         return
 
 class EASEtool_OT_Toggle_Auto_Smooth(Operator):
@@ -365,7 +361,7 @@ class EASEtool_Normal_Pie_Menu(Menu):
             r = col.split(factor=0.4, align=True)
             r.label(text="Vertex Group", icon="GROUP_VERTEX")
             r = r.split(factor=0.9, align=True)
-            r.prop(mod, "vertex_group", text="")
+            r.prop_search(mod, "vertex_group", active, "vertex_groups", text="")
             r.prop(mod, "invert_vertex_group", text="", icon="ARROW_LEFTRIGHT")
             
         else:
@@ -399,9 +395,10 @@ class EASEtool_Normal_Pie_Menu(Menu):
 #######################################################################################################################
 
 
-classes = [ EASEtool_Normal_Pie_Menu, EASEtool_OT_Select_Face_Strength, EASEtool_OT_Set_Face_Strength, EASEtool_OT_Toggle_Auto_Smooth,
-            EASEtool_OT_Set_Auto_Smooth_Angle, EASEtool_OT_Set_Shade_Mode, EASEtool_OT_Add_Weighted_Normal,
-            EASEtool_OT_Call_Normal_Pie,
+classes = [ EASEtool_Normal_Pie_Menu, EASEtool_OT_Call_Normal_Pie,
+            EASEtool_OT_Face_Strength, EASEtool_OT_Select_Face_Strength, EASEtool_OT_Set_Face_Strength,
+            EASEtool_OT_Toggle_Auto_Smooth, EASEtool_OT_Set_Auto_Smooth_Angle, EASEtool_OT_Set_Shade_Mode,
+            EASEtool_OT_Add_Weighted_Normal,
             ]
 addon_keymaps = []
 
