@@ -1,7 +1,7 @@
 bl_info = {
-    "name": "EASEtool: Material",
+    "name": "EASEtool: Materials",
     "author": "Kidney",
-    "version": (1, 0, 1),
+    "version": (1, 0, 2),
     "blender": (3, 5, 0),
     "location": "3D View > Sidebar",
     "description": "Material panel for managing materials in blender file",
@@ -66,10 +66,26 @@ class EASEtool_UL_Material_List(UIList):
                 row.prop(item, "name", text="", emboss=False, icon_value=icon)
                 
                 material = bpy.data.materials.get(item.name)
-                row = row.row(translate=False)
+                row = row.row(translate=False, align = True)
                 row.alignment = 'RIGHT'
                 row.label(text=str(material.users))
                 row.prop(material, "use_fake_user", text="", emboss=False)
+                
+                props = context.scene.ease_mat_prop_grp
+                
+                ## Add material to selection
+                op1 = row.operator("easetool.add_material", emboss=False, text="", icon="ADD")
+                op1.selected_only = True
+                op1.overwrite = props.overwrite_original
+                op1.to_end = props.to_end
+                ## Remove from selection
+                op2 = row.operator("easetool.remove_material", emboss=False, text="", icon="REMOVE")
+                op2.selected_only = True
+                op2.delete_slot = props.delete_slot
+                ## Delete from file
+                op3 = row.operator("easetool.delete_materials", emboss=False, text="", icon="TRASH")
+                op3.delete_all = False
+                op1.index, op2.index, op3.index = index ,index, index
             else:
                 layout.label(text="", translate=False, icon_value=icon)
                 
@@ -97,6 +113,8 @@ def get_objects(selected: bool) -> []:
 def any_materials() -> bool:
     return len(bpy.data.materials) > 0
 
+
+
 #############################################################
 ####   OPERATORS    #########################################
 #############################################################
@@ -111,21 +129,28 @@ class EASEtool_OT_Delete_Materials(Operator):
         ## Check if there are any materials in the blend file
         return any_materials()
     
+    index: IntProperty( name = "Index", default = 0)
     delete_all: BoolProperty( name = "Delete All", default=False)
         
     def execute(self, context):
         # Get the list of materials
         materials = bpy.data.materials
-        if not self.delete_all:
-            index = context.scene.ease_mat_prop_grp.material_index
-            
-            if index > -1: ## If Out of range don't delete anything, not sure this is the best, but it seems reasonable
-                context.scene.ease_mat_prop_grp.material_index -= 1
-                materials.remove(materials[index])
-        else:
-            context.scene.ease_pmat_rop_grp.material_index = 0
+        
+        if self.delete_all: ## if delete_all don't need to check for index, just remove all and return
+            context.scene.ease_mat_prop_grp.material_index = 0
             for i in range(len(materials) -1, -1, -1):
                 materials.remove(materials[i])
+                
+            return {'FINISHED'}
+        
+        ## if not delete_all execute rest of the code
+        ## Check if index provided
+        index = self.index
+        
+        if index > -1: ## If Out of range don't delete anything, not sure this is the best, but it seems reasonable
+            context.scene.ease_mat_prop_grp.material_index -= 1
+            materials.remove(materials[index])
+                    
             
         return {'FINISHED'}
                 
@@ -164,14 +189,18 @@ class EASEtool_OT_Remove_Material(Operator):
         # Check if there are any materials in the blend file
         return any_materials()
     
+    index: IntProperty( name = "Index", default = -1 )
     delete_slot: BoolProperty( name = "Delete Material Slot", default = False)
-    selected_only: BoolProperty( name = "Only affect Active", default = True)
+    selected_only: BoolProperty( name = "Only Affect Active", default = True)
                
     def execute(self, context):
 
         # Get the list of materials
         materials = bpy.data.materials
-        index = context.scene.ease_mat_prop_grp.material_index
+        
+        ## Check if index is given
+        index = self.index
+                
         material = materials[index]
         
         objects = get_objects(self.selected_only)
@@ -181,19 +210,22 @@ class EASEtool_OT_Remove_Material(Operator):
         for obj in objects:
             ## loop backwards to check so you can remove the slots
             num_slots = len(obj.material_slots)
+            materials = obj.data.materials
             for i in range(num_slots - 1, -1, -1):
                 slot = obj.material_slots[i]
-                if slot.material == material:
-                    obj_mats = obj.data.materials
-                    # Get the material slot index
-                    
-                    if self.delete_slot:
-                        # Remove the material slot from the object
-                        obj_mats.pop(index=i)
-                    else:
-                        slot.material = None
+                self.remove_mat(slot, material, materials)
                         
         return {'FINISHED'}
+    
+    def remove_mat(self, slot, material,  materials):
+        if slot.material == material:
+            # Get the material slot index
+            
+            if self.delete_slot:
+                # Remove the material slot from the object
+                obj_mats.pop(index=i)
+            else:
+                slot.material = None
                
     
 class EASEtool_OT_Delete_Unused_Slots(Operator):
@@ -243,7 +275,8 @@ class EASEtool_OT_Add_Material(Operator):
     def poll(cls, context):
         # Check if there are any materials in the blend file
         return any_materials()
-        
+    
+    index: IntProperty( name = "Index", default = -1 )   
     selected_only: BoolProperty( name = "Only From Selected", default = True)
     overwrite: BoolProperty( name = "Overwrite origianl materials", default = False)
     to_end: BoolProperty( name = "Add the material to the end of the list", default = False)
@@ -251,7 +284,9 @@ class EASEtool_OT_Add_Material(Operator):
     def execute(self, context):
         objects = get_objects(self.selected_only)
         
-        index = context.scene.ease_mat_prop_grp.material_index
+        ## Check if mateiral index is given
+        index = self.index
+        
         material = bpy.data.materials[index]
         
         ## Add material
@@ -446,6 +481,56 @@ class EASEtool_OT_Create_Face_Strength_Material(Operator):
 #        return {'FINISHED'}
 
 
+class EASEtool_OT_Colorize_Materials(Operator):
+    """Set Material Diffuse color to shader default color"""
+    bl_idname = "easetool.colorize"
+    bl_label = "Colorize Materials"
+    bl_icon = "MATERIAL"
+    
+    @classmethod
+    def poll(cls, context):
+        ## Check if there are any materials in the blend file
+        return any_materials()
+    
+    def execute(self, context):
+        materials = bpy.data.materials
+        
+        for m in materials:
+
+            ## Get the material output node
+            material_output = m.node_tree.nodes.get('Material Output')
+
+            ## if material output doesn't exist ignore
+            if not material_output:
+                continue           
+        
+            ## Get the input shader of the material output node
+            input_shader = material_output.inputs['Surface'].links[0].from_node
+            
+            ## Check if the input shader exists
+            if not input_shader:
+                continue
+            
+            color = ()
+            ## Check if the node is Add or Mix nodes
+            if input_shader.type == 'ShaderNodeMixShader':
+                color = (0.583, 0.922, 0.227, 1)
+            elif input_shader.type == 'ShaderNodeAddShader':
+                color = (0.333, 0.814, 0.130, 1)
+            else: 
+                ## Get the color from the input shader
+                ## Most if not all Shaders have color node at index 0
+                color = input_shader.inputs[0].default_value
+            
+            m.diffuse_color = color
+
+
+
+        return {'FINISHED'}
+
+
+
+
 #############################################################
 ####    UI    ###############################################
 #############################################################
@@ -507,6 +592,13 @@ class EASEtool_PT_Material_Panel(Panel):
         row.prop(props, "new_shader", text="")
         
         
+        ## Colorize Materials
+        col.separator()
+        box = col.box()
+        box.operator("easetool.colorize")
+        
+                
+        ## Object Section
         col.separator()
         box = col.box()
         
@@ -520,7 +612,8 @@ class EASEtool_PT_Material_Panel(Panel):
             operator.to_end = props.to_end
         
             
-        op = c.operator("easetool.add_material", text="Add Material to Selection")   
+        op = c.operator("easetool.add_material", text="Add Material to Selection")
+        op.index = index
         op.selected_only = True
         set_params(op)
         op = c.operator("easetool.add_material", text="Add Material to All")
@@ -540,6 +633,7 @@ class EASEtool_PT_Material_Panel(Panel):
         ## Remove Material From object
         c.separator()
         op = c.operator("easetool.remove_material", text="Remove Material From Selected")
+        op.index = index
         op.selected_only = True
         op.delete_slot = props.delete_slot
         c.operator("easetool.remove_material", text="Remove Material From All")
@@ -567,12 +661,13 @@ class EASEtool_PT_Material_Panel(Panel):
         box.label(text="File")
         c = box.column(align=True)
         
-        c.operator("easetool.delete_materials", text="Delete Selected Material", icon="FILE_BACKUP").delete_all = False ## Crahses sometimes Index issue
+        op = c.operator("easetool.delete_materials", text="Delete Selected Material", icon="FILE_BACKUP")
+        op.index = index
+        op.delete_all = False ## Crahses sometimes Index issue
         c.operator("easetool.delete_unused_materials", text="Delete All Orphan Materials", icon="ORPHAN_DATA")
         c.operator("easetool.delete_materials", text="Delete All Materials", icon="TRASH").delete_all = True 
         
-        
-        
+                
         ## Material Presets
         col.separator()
         box = col.box()
@@ -589,7 +684,7 @@ class EASEtool_PT_Material_Panel(Panel):
 classes = [ EASEtool_UL_Material_List, EASEtool_PT_Material_Panel, EASEtool_Material_Property_Group,
             EASEtool_OT_Delete_Materials, EASEtool_OT_Delete_Unused_Materials, EASEtool_OT_Remove_Material,
             EASEtool_OT_Delete_Unused_Slots, EASEtool_OT_Add_Material, EASEtool_OT_Assign_Fake_User, 
-            EASEtool_OT_Create_Material, EASEtool_OT_Create_Face_Strength_Material,
+            EASEtool_OT_Create_Material, EASEtool_OT_Create_Face_Strength_Material, EASEtool_OT_Colorize_Materials
             ]
 
 from bpy.utils import register_class, unregister_class
