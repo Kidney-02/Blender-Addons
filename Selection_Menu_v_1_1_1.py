@@ -34,8 +34,8 @@ class EASEtool_UL_Vertex_Group_List(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index, flt_flag):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             if item:
-                row = layout.split(factor=0.5625, align = True)
-                row.prop(item, "name", text="", emboss=False, icon="GROUP_VERTEX")
+                row = layout.split(factor = 0.52, align = True)
+                row.prop(item, "name", text="", emboss=False,)
                 row = row.row(align = True, translate = False)
                 
                 ## Lock
@@ -43,15 +43,15 @@ class EASEtool_UL_Vertex_Group_List(UIList):
                 row.prop(item, "lock_weight", emboss=False, text="", icon=icon_lock)
                 
                 ## Select
-                op1 = row.operator("easetool.test_test", emboss=False, text="", icon="RESTRICT_SELECT_OFF")
+                op1 = row.operator("easetool.vertex_group_action", emboss=False, text="", icon="RESTRICT_SELECT_OFF")
                 ## Deselect
-                op2 = row.operator("easetool.test_test", emboss=False, text="", icon="RESTRICT_SELECT_ON")
+                op2 = row.operator("easetool.vertex_group_action", emboss=False, text="", icon="RESTRICT_SELECT_ON")
                 ## Asign
-                op3 = row.operator("easetool.test_test", emboss=False, text="", icon="ADD")
+                op3 = row.operator("easetool.vertex_group_action", emboss=False, text="", icon="ADD")
                 ## Remove
-                op4 = row.operator("easetool.test_test", emboss=False, text="", icon="REMOVE")
+                op4 = row.operator("easetool.vertex_group_action", emboss=False, text="", icon="REMOVE")
                 ## Delete
-                op5 = row.operator("easetool.test_test", emboss=False, text="", icon="TRASH")
+                op5 = row.operator("easetool.vertex_group_action", emboss=False, text="", icon="TRASH")
                 
                 index = item.index
                 op1.index, op2.index, op3.index, op4.index, op5.index = index, index, index, index, index
@@ -71,7 +71,7 @@ class EASEtool_UL_Face_Map_List(UIList):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             if item:
                 row = layout.split(factor=0.65, align = True)
-                row.prop(item, "name", text="", emboss=False, icon="FACE_MAPS")
+                row.prop(item, "name", text="", emboss=False)
                 row = row.row(align = True, translate = False)
                 
                 ## Select
@@ -88,8 +88,7 @@ class EASEtool_UL_Face_Map_List(UIList):
                 index = item.index
                 op1.index, op2.index, op3.index, op4.index, op5.index = index, index, index, index, index
                 op1.action, op2.action, op3.action, op4.action, op5.action = "SELECT", "DESELECT", "ASSIGN", "REMOVE", "DELETE"
-                
-                
+
             else:
                 layout.label(text="", translate=False, icon="FACE_MAPS")
             
@@ -120,9 +119,9 @@ class EASEtool_OT_Select_Ngons(Operator):
         return {'FINISHED'}
 
 class EASEtool_OT_Group_Action(Operator):
-    """Test"""
+    """Parent Function for Group actions"""
     bl_idname = "easetool.group_action"
-    bl_label = "Vertex Group Action"
+    bl_label = "Group Action"
     
     index: IntProperty( name="Group index", default = 0 )
     action: EnumProperty( name="Operator action",
@@ -132,7 +131,13 @@ class EASEtool_OT_Group_Action(Operator):
         ("REMOVE", "Remove", "Remove group"),
         ("DELETE", "Delete", "Delete group")],
         )
-    
+        
+        
+class EASEtool_OT_Vertex_Group_Action(EASEtool_OT_Group_Action):
+    """Select, deselect, remove, assign vertices to vertex groups"""
+    bl_idname = "easetool.vertex_group_action"
+    bl_label = "Vertex Group Action"
+           
     def execute(self, context):        
         # Get the active object
         obj = context.active_object
@@ -150,9 +155,7 @@ class EASEtool_OT_Group_Action(Operator):
         elif self.action == "DELETE":            
             bpy.ops.object.vertex_group_remove()
 
-              
         return {'FINISHED'}
-        
 
 class EASEtool_OT_Face_Map_Action(EASEtool_OT_Group_Action):
     """Select, deselect, remove, assign faces to face map"""
@@ -219,7 +222,7 @@ class EASEtool_OT_Face_Map_From_Selection(Operator):
 class EASEtool_OT_Face_Maps_From_Face_Strength(Operator):
     """Make face map from selection, removes maps with names: 'Weak', 'Medium', 'Strong'"""
     bl_idname = "easetool.face_map_from_face_strength"
-    bl_label = "New Map From Face Strength"
+    bl_label = "New Maps From Face Strength"
     
     names = ["Weak", "Medium", "Strong"]
        
@@ -359,7 +362,6 @@ class EASEtool_UI_Selection(Operator):
         ## Column two
         vertex_box = main_row.box()
         vertex_box.ui_units_x = 12
-        
         vertex_box.label(text="Vertex Groups", icon="GROUP_VERTEX")
         
         vertex_groups = obj.vertex_groups
@@ -371,19 +373,16 @@ class EASEtool_UI_Selection(Operator):
         col.prop(props, "vg_name")        
         col.separator()
         col.prop(scene.tool_settings, "vertex_group_weight", text="Weight")
-        col.operator("easetool.vertex_group_from_selection", icon="RESTRICT_SELECT_OFF")
+        col.operator("easetool.vertex_group_from_selection", icon="RESTRICT_SELECT_OFF").name = props.vg_name
         
         ## Delete all            
         col.separator()
         col.operator("easetool.delete_all_vertex_groups", icon="TRASH")
         
-        
-              
-                        
+
         ## Column three        
         face_box = main_row.box()        
-        face_box.ui_units_x = 12        
-  
+        face_box.ui_units_x = 12
         face_box.label(text="Face Maps", icon="FACE_MAPS")
         
         face_maps = obj.face_maps
@@ -412,7 +411,8 @@ class EASEtool_UI_Selection(Operator):
 
 classes = [ EASEtool_UI_Selection, EASEtool_Selection_Property_Group,
             EASEtool_UL_Vertex_Group_List, EASEtool_UL_Face_Map_List,
-            EASEtool_OT_Select_Ngons, EASEtool_OT_Group_Action, EASEtool_OT_Face_Map_Action, 
+            EASEtool_OT_Select_Ngons,
+            EASEtool_OT_Group_Action, EASEtool_OT_Face_Map_Action, EASEtool_OT_Vertex_Group_Action,
             EASEtool_OT_Vertex_Group_From_Selection, EASEtool_OT_Face_Map_From_Selection, EASEtool_OT_Face_Maps_From_Face_Strength,
             EASEtool_OT_Delete_All_Vertex_Groups, EASEtool_OT_Delete_All_Face_Maps,            
             ]  
@@ -455,6 +455,6 @@ def unregister():
 if __name__ == "__main__":
     register()
     
-#    bpy.ops.easetool.ui_selection_groups("INVOKE_DEFAULT")
+#    bpy.ops.easetool.call_selection_ui("INVOKE_DEFAULT")
     
     
