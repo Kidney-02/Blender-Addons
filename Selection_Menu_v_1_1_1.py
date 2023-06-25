@@ -305,7 +305,7 @@ class EASEtool_UI_Selection(Operator):
     def invoke(self, context, event):
         ## Call the UI
         wm = context.window_manager
-        return wm.invoke_popup(self, width=700)
+        return wm.invoke_popup(self, width=500)
      
     def draw(self, context):
         
@@ -342,6 +342,16 @@ class EASEtool_UI_Selection(Operator):
         row = select_box.row()
         
         col = row.column(align=True)
+        col.label(text="Loops:")
+        col.operator("mesh.loop_multi_select", text="Edge Loops")
+        col.operator("mesh.loop_multi_select", text="Edge Rings")
+        col.operator("mesh.loop_to_region", text="Inner Region")
+        col.operator("mesh.region_to_loop", text="Boundary")
+
+        
+        row = select_box.row()
+        
+        col = row.column(align=True)
         col.label(text="Linked:")
         col.operator_enum("mesh.select_linked", property="delimit")
 
@@ -356,6 +366,8 @@ class EASEtool_UI_Selection(Operator):
         col = select_box.column(align=True)
         col.label(text="Similar:")
         col.operator_enum("mesh.select_similar", property="type")
+        
+        
         
 
         
@@ -380,27 +392,27 @@ class EASEtool_UI_Selection(Operator):
         col.operator("easetool.delete_all_vertex_groups", icon="TRASH")
         
 
-        ## Column three        
-        face_box = main_row.box()        
-        face_box.ui_units_x = 12
-        face_box.label(text="Face Maps", icon="FACE_MAPS")
-        
-        face_maps = obj.face_maps
-        col = face_box.column(translate=False, align=True)
-        col.template_list("EASEtool_UL_Face_Map_List", "Face maps", obj, "face_maps", face_maps, "active_index", rows=12, maxrows=12)
-        
-        ## Create from selection
-        col.separator()
-        col.prop(props, "fm_name")        
-        col.separator()
-        col.operator("easetool.face_map_from_selection", icon="RESTRICT_SELECT_OFF").name = props.fm_name
-        
-        ## Group by face strength
-        col.operator("easetool.face_map_from_face_strength", icon="MOD_NORMALEDIT")
-        
-        ## Delete all            
-        col.separator()
-        col.operator("easetool.delete_all_face_maps", icon="TRASH")
+#        ## Column three        
+#        face_box = main_row.box()        
+#        face_box.ui_units_x = 12
+#        face_box.label(text="Face Maps", icon="FACE_MAPS")
+#        
+#        face_maps = obj.face_maps
+#        col = face_box.column(translate=False, align=True)
+#        col.template_list("EASEtool_UL_Face_Map_List", "Face maps", obj, "face_maps", face_maps, "active_index", rows=12, maxrows=12)
+#        
+#        ## Create from selection
+#        col.separator()
+#        col.prop(props, "fm_name")        
+#        col.separator()
+#        col.operator("easetool.face_map_from_selection", icon="RESTRICT_SELECT_OFF").name = props.fm_name
+#        
+#        ## Group by face strength
+#        col.operator("easetool.face_map_from_face_strength", icon="MOD_NORMALEDIT")
+#        
+#        ## Delete all            
+#        col.separator()
+#        col.operator("easetool.delete_all_face_maps", icon="TRASH")
 
         
         
@@ -441,7 +453,7 @@ def register():
     for c in classes:
         register_class(c)
         
-    register_keymaps()
+#    register_keymaps()
     ## Register properties
     bpy.types.Scene.ease_sel_props = PointerProperty(type = EASEtool_Selection_Property_Group)
         
